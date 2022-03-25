@@ -1,24 +1,46 @@
 package de.florianweinaug.system_settings
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.annotation.NonNull;
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry.Registrar
 import java.lang.Exception
+import androidx.annotation.NonNull
+import androidx.annotation.Nullable
+import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.PluginRegistry.Registrar
 
-public class SystemSettingsPlugin(private val registrar: Registrar): MethodCallHandler {
+import io.flutter.plugin.common.BinaryMessenger
+class SystemSettingsPlugin: FlutterPlugin, MethodCallHandler {
+
+  var methodChannel: MethodChannel? = null
+  var applicationContext: Context? = null
   companion object {
     @JvmStatic
     fun registerWith(registrar: Registrar) {
-      val channel = MethodChannel(registrar.messenger(), "system_settings")
-      channel.setMethodCallHandler(SystemSettingsPlugin(registrar))
+      val plugin = SystemSettingsPlugin();
+      plugin.setupChannel(registrar.messenger(),registrar.context())
     }
+  }
+
+  fun setupChannel(messenger: BinaryMessenger, context: Context) {
+    this.applicationContext =context;
+    methodChannel = MethodChannel(messenger, "system_settings")
+    methodChannel?.setMethodCallHandler(this)
+  }
+  override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    setupChannel(binding.binaryMessenger, binding.applicationContext)
+  }
+  override fun onDetachedFromEngine(p0: FlutterPlugin.FlutterPluginBinding) {
+    methodChannel?.setMethodCallHandler(null)
+    methodChannel = null
   }
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -52,33 +74,33 @@ public class SystemSettingsPlugin(private val registrar: Registrar): MethodCallH
   private fun openAppSettings() {
     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
 
-    val uri = Uri.fromParts("package", registrar.context().packageName, null)
+    val uri = Uri.fromParts("package", applicationContext!!.packageName, null)
     intent.data = uri
 
-    registrar.context().startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    applicationContext!!.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
   private fun openAppNotificationSettings() {
     val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-              .putExtra(Settings.EXTRA_APP_PACKAGE, registrar.context().packageName)
+              .putExtra(Settings.EXTRA_APP_PACKAGE, applicationContext!!.packageName)
     } else {
       Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-              .setData(Uri.parse("package:${registrar.context().packageName}"))
+              .setData(Uri.parse("package:${applicationContext!!.packageName}"))
     }
 
-    registrar.context().startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    applicationContext!!.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
   private fun openSetting(name: String) {
     try {
-      registrar.context().startActivity(Intent(name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      applicationContext!!.startActivity(Intent(name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
       openSystemSettings()
     }
   }
 
   private fun openSystemSettings() {
-    registrar.context().startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    applicationContext!!.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 }
